@@ -4,18 +4,47 @@ $database_file = 'transaksi.json';
 $transactions = [];
 $total_pendapatan = 0;
 
+// === LOGIKA BARU UNTUK FILTER TANGGAL ===
+// 1. Cek apakah ada tanggal yang dikirim dari form
+$tanggal_filter = null;
+if (isset($_GET['tanggal']) && !empty($_GET['tanggal'])) {
+    $tanggal_filter = $_GET['tanggal'];
+}
+
 // Cek apakah file database ada
 if (file_exists($database_file)) {
     // Baca isi file dan ubah dari JSON menjadi array PHP
-    $transactions = json_decode(file_get_contents($database_file), true);
+    $all_transactions = json_decode(file_get_contents($database_file), true) ?: [];
+
+    // 2. Filter transaksi jika ada tanggal yang dipilih
+    if ($tanggal_filter) {
+        foreach ($all_transactions as $trans) {
+            // Pastikan data transaksi lengkap sebelum diakses
+            if (isset($trans['tanggal'])) {
+                // Ambil hanya bagian tanggal (YYYY-MM-DD) dari timestamp transaksi
+                $tanggal_transaksi = substr($trans['tanggal'], 0, 10);
+                if ($tanggal_transaksi == $tanggal_filter) {
+                    // Jika tanggalnya cocok, masukkan ke array hasil
+                    $transactions[] = $trans;
+                }
+            }
+        }
+    } else {
+        // Jika tidak ada filter, tampilkan semua transaksi
+        $transactions = $all_transactions;
+    }
     
     // Balik urutan array agar transaksi terbaru ada di paling atas
-    $transactions = array_reverse($transactions);
+    if (is_array($transactions)) {
+        $transactions = array_reverse($transactions);
+    }
 
-    // Hitung total pendapatan dari semua transaksi
+    // 3. Hitung total pendapatan HANYA dari transaksi yang sudah difilter
     if (is_array($transactions)) {
         foreach ($transactions as $trans) {
-            $total_pendapatan += $trans['total'];
+             if (isset($trans['total'])) {
+                $total_pendapatan += $trans['total'];
+            }
         }
     }
 }
@@ -26,64 +55,79 @@ if (file_exists($database_file)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laporan Penjualan - Forest Desert</title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        /* Sedikit tambahan CSS khusus untuk halaman laporan */
-        body { display: block; } /* Override display flex dari style.css */
-        .report-container { max-width: 900px; margin: 20px auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
-        th { background-color: #f4f7f9; }
-        .total-row { font-weight: bold; background-color: #f0f0f0; }
-        .items-list { list-style: none; padding-left: 0; margin: 0; }
+        .report-container { max-width: 900px; margin: 30px auto; }
+        .items-list { list-style: none; padding-left: 0; margin: 0; font-size: 0.9rem; }
     </style>
 </head>
-<body>
+<body class="bg-light">
 
-    <div class="report-container">
-        <div style="text-align:center;">
-            <img src="assets/images/logo_forest_desert.png" alt="Logo" style="width: 50px; height: 50px;">
-            <h2>Laporan Penjualan - Forest Desert</h2>
+    <div class="report-container card p-4 shadow-sm">
+        <div class="text-center mb-4">
+            <img src="assets/images/logo_forest_desert.png" alt="Logo" style="width: 50px; height: 50px;" class="mb-2">
+            <h2 class="card-title">Laporan Penjualan</h2>
+            <h6 class="card-subtitle mb-2 text-muted">Forest Desert</h6>
         </div>
         
-        <div class="order-total total-row" style="padding: 15px;">
-            <span>Total Seluruh Pendapatan:</span>
-            <span>Rp <?= number_format($total_pendapatan, 0, ',', '.') ?></span>
+        <form action="laporan.php" method="GET" class="row g-3 align-items-center mb-4 p-3 bg-light border rounded">
+            <div class="col-md-auto">
+                <label for="tanggal" class="form-label fw-bold">Pilih Tanggal:</label>
+            </div>
+            <div class="col-md-4">
+                <input type="date" class="form-control" id="tanggal" name="tanggal" value="<?= htmlspecialchars($tanggal_filter ?? '') ?>">
+            </div>
+            <div class="col-md-auto">
+                <button type="submit" class="btn btn-primary">Cari Transaksi</button>
+            </div>
+            <div class="col-md-auto">
+                <a href="laporan.php" class="btn btn-secondary">Tampilkan Semua</a>
+            </div>
+        </form>
+        <div class="alert alert-success">
+            <div class="d-flex justify-content-between fw-bold">
+                <span>Total Pendapatan (Sesuai Filter):</span>
+                <span>Rp <?= number_format($total_pendapatan, 0, ',', '.') ?></span>
+            </div>
         </div>
 
-        <table>
-            <thead>
-                <tr>
-                    <th>ID Pesanan</th>
-                    <th>Tanggal</th>
-                    <th>Detail Item</th>
-                    <th>Total</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($transactions)): ?>
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped table-hover">
+                <thead class="table-light">
                     <tr>
-                        <td colspan="4" style="text-align: center;">Belum ada data transaksi.</td>
+                        <th>ID Pesanan</th>
+                        <th>Tanggal & Waktu</th>
+                        <th>Detail Item</th>
+                        <th class="text-end">Total</th>
                     </tr>
-                <?php else: ?>
-                    <?php foreach ($transactions as $trans): ?>
+                </thead>
+                <tbody>
+                    <?php if (empty($transactions)): ?>
                         <tr>
-                            <td><?= htmlspecialchars($trans['order_id']) ?></td>
-                            <td><?= htmlspecialchars($trans['tanggal']) ?></td>
-                            <td>
-                                <ul class="items-list">
-                                    <?php foreach ($trans['items'] as $item): ?>
-                                        <li><?= htmlspecialchars($item['name']) ?> (x<?= $item['qty'] ?>)</li>
-                                    <?php endforeach; ?>
-                                </ul>
-                            </td>
-                            <td>Rp <?= number_format($trans['total'], 0, ',', '.') ?></td>
+                            <td colspan="4" class="text-center text-muted py-4">Tidak ada data transaksi untuk tanggal yang dipilih.</td>
                         </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
-            </tbody>
-        </table>
-         <a href="index.php" style="display:inline-block; margin-top: 20px;">&larr; Kembali ke Kasir</a>
+                    <?php else: ?>
+                        <?php foreach ($transactions as $trans): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($trans['order_id'] ?? 'N/A') ?></td>
+                                <td><?= htmlspecialchars($trans['tanggal'] ?? 'N/A') ?></td>
+                                <td>
+                                    <?php if (!empty($trans['items'])): ?>
+                                        <ul class="items-list">
+                                            <?php foreach ($trans['items'] as $item): ?>
+                                                <li><?= htmlspecialchars($item['name']) ?> (x<?= $item['qty'] ?>)</li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="text-end">Rp <?= number_format($trans['total'] ?? 0, 0, ',', '.') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        <a href="index.php" class="btn btn-outline-secondary mt-3 text-decoration-none">&larr; Kembali ke Halaman Kasir</a>
     </div>
 
 </body>
