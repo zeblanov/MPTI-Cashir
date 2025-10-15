@@ -1,40 +1,47 @@
 <?php
-// STRUKTUR DATA MENU
+// ▼▼▼ NEW MENU DATA STRUCTURE ACCORDING TO EXCEL ▼▼▼
 $menu_data = [
-    'MAKANAN' => [
-        'Spesial Nasi Goreng' => [
-            ['id' => 1, 'name' => 'Nasgor Biasa', 'price' => 10000, 'image' => 'assets/images/nasgor.jpg'],
-            ['id' => 3, 'name' => 'Nasgor Ayam', 'price' => 13000, 'image' => 'assets/images/nasgor.jpg'],
-            ['id' => 6, 'name' => 'Nasgor Spesial', 'price' => 16000, 'image' => 'assets/images/nasgor.jpg'],
-            ['id' => 7, 'name' => 'Nasgor Setan', 'price' => 17000, 'image' => 'assets/images/nasgor.jpg'],
+    'DESSERTS & PASTRY' => [
+        'Signature Desserts' => [
+            ['id' => 'DB01', 'name' => 'Choco Lava Box', 'price' => 35000, 'image' => 'assets/images/placeholder_dessert.png'],
+            ['id' => 'DB02', 'name' => 'Red Velvet Cheese', 'price' => 38000, 'image' => 'assets/images/placeholder_dessert.png'],
+            ['id' => 'DB03', 'name' => 'Tiramisu Regal', 'price' => 32000, 'image' => 'assets/images/placeholder_dessert.png'],
+            ['id' => 'DB04', 'name' => 'Matcha Green Tea', 'price' => 30000, 'image' => 'assets/images/placeholder_dessert.png'],
+            ['id' => 'DB05', 'name' => 'Biscoff Lotus', 'price' => 40000, 'image' => 'assets/images/placeholder_dessert.png'],
         ],
-        'Spesial Omelet' => [
-            ['id' => 8, 'name' => 'Omelet Original', 'price' => 8000, 'image' => 'assets/images/omelet.jpg'],
+        'Fresh & Frozen' => [
+            ['id' => 'FD01', 'name' => 'Mango Sago Fusion', 'price' => 28000, 'image' => 'assets/images/placeholder_dessert.png'],
+            ['id' => 'FD02', 'name' => 'Korean Strawberry', 'price' => 25000, 'image' => 'assets/images/placeholder_dessert.png'],
+            ['id' => 'FD03', 'name' => 'Es Campur Kekinian', 'price' => 27000, 'image' => 'assets/images/placeholder_dessert.png'],
+            ['id' => 'FD04', 'name' => 'Silky Puding Coklat', 'price' => 20000, 'image' => 'assets/images/placeholder_dessert.png'],
+        ],
+        'Pastry & Baked' => [
+            ['id' => 'PB01', 'name' => 'Mini Fruit Tart', 'price' => 15000, 'image' => 'assets/images/placeholder_dessert.png'],
+            ['id' => 'PB02', 'name' => 'Soft Cookies Chocochip', 'price' => 12000, 'image' => 'assets/images/placeholder_dessert.png'],
+            ['id' => 'PB03', 'name' => 'Cinnamon Roll Cream', 'price' => 18000, 'image' => 'assets/images/placeholder_dessert.png'],
         ],
     ],
-    'MINUMAN' => [
-        'Minuman Dingin' => [
-            ['id' => 10, 'name' => 'Teh Es', 'price' => 3000, 'image' => 'assets/images/teh_es.jpg'],
-            ['id' => 11, 'name' => 'Es Jeruk', 'price' => 4000, 'image' => 'assets/images/es_jeruk.jpg'],
+    'BEVERAGES' => [
+        'Beverages (Mini BV)' => [
+            ['id' => 'BV01', 'name' => 'Iced Americano', 'price' => 15000, 'image' => 'assets/images/placeholder_beverage.png'],
+            ['id' => 'BV02', 'name' => 'Chocolate Hazelnut', 'price' => 22000, 'image' => 'assets/images/placeholder_beverage.png'],
+            ['id' => 'BV03', 'name' => 'Lychee Tea', 'price' => 18000, 'image' => 'assets/images/placeholder_beverage.png'],
         ],
     ],
 ];
 
-// ▼▼▼ LOGIKA BARU UNTUK MENAMPILKAN MENU SECARA DINAMIS ▼▼▼
+// Set the active category from the URL, or use 'Signature Desserts' as the default
+$active_category = $_GET['kategori'] ?? 'Signature Desserts';
 
-// Tentukan kategori aktif dari URL, jika tidak ada, gunakan 'Spesial Nasi Goreng' sebagai default
-$active_category = $_GET['kategori'] ?? 'Spesial Nasi Goreng';
-
-// Cari item yang sesuai dengan kategori aktif
+// Find the items that match the active category
 $items_to_display = [];
 foreach ($menu_data as $main_category => $sub_categories) {
     if (isset($sub_categories[$active_category])) {
         $items_to_display = $sub_categories[$active_category];
-        break; // Hentikan pencarian jika sudah ditemukan
+        break;
     }
 }
-// ▲▲▲ BATAS AKHIR LOGIKA BARU ▲▲▲
-
+// ▲▲▲ END OF NEW MENU DATA ▲▲▲
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -66,15 +73,13 @@ foreach ($menu_data as $main_category => $sub_categories) {
                             <?php foreach ($menu_data as $kategori => $sub_kategori_list): ?>
                                 <h6 class="nav-title mt-3"><?= $kategori ?></h6>
                                 <?php foreach (array_keys($sub_kategori_list) as $sub_kategori_name): ?>
-                                    
                                     <?php
-                                        // Cek apakah sub-kategori saat ini adalah yang sedang aktif
                                         $is_active = ($sub_kategori_name === $active_category) ? 'active' : '';
                                     ?>
                                     <a class="nav-link <?= $is_active ?>" href="?kategori=<?= urlencode($sub_kategori_name) ?>">
                                         <?= $sub_kategori_name ?>
                                     </a>
-                                    <?php endforeach; ?>
+                                <?php endforeach; ?>
                             <?php endforeach; ?>
                         </nav>
                         
@@ -97,7 +102,7 @@ foreach ($menu_data as $main_category => $sub_categories) {
                                     <?php foreach ($items_to_display as $item): ?>
                                         <div class="col">
                                             <div class="card h-100 menu-item" 
-                                                 data-id="<?= $item['id'] ?>" 
+                                                 data-id="<?= htmlspecialchars($item['id']) ?>" 
                                                  data-name="<?= htmlspecialchars($item['name']) ?>" 
                                                  data-price="<?= $item['price'] ?>">
                                                 <img src="<?= $item['image'] ?>" class="card-img-top" alt="<?= htmlspecialchars($item['name']) ?>">
@@ -111,7 +116,7 @@ foreach ($menu_data as $main_category => $sub_categories) {
                                 <?php else: ?>
                                     <p class="text-muted">Menu untuk kategori ini tidak ditemukan.</p>
                                 <?php endif; ?>
-                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
