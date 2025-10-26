@@ -11,7 +11,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Variabel untuk Modal Notifikasi
     const successModalEl = document.getElementById('orderSuccessModal');
-    const successModal = new bootstrap.Modal(successModalEl);
+    // Cek keberadaan elemen sebelum membuat instance Modal
+    const successModal = successModalEl ? new bootstrap.Modal(successModalEl) : null;
 
     // Variabel untuk Pembayaran
     const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
@@ -20,12 +21,31 @@ document.addEventListener('DOMContentLoaded', function() {
     const changeDisplayDiv = document.getElementById('change-display');
     const changeAmountSpan = document.getElementById('change-amount');
     const cashErrorDiv = document.getElementById('cash-error');
+    const quickCashButtons = document.querySelectorAll('.quick-cash-btn'); // Sudah ada
 
     // FUNGSI UTAMA
 
+    /** Mengubah angka menjadi format Rupiah. */
+    function formatRupiah(angka) {
+        if (angka == null) return '0';
+        return angka.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    }
+
+    /** Helper: Mendapatkan total harga pesanan saat ini (sebagai angka) */
+    function getCurrentTotal() {
+        return currentOrder.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    }
+
+    /** Helper: Mendapatkan metode pembayaran yang dipilih */
+    function getSelectedPaymentMethod() {
+        const selectedRadio = document.querySelector('input[name="paymentMethod"]:checked');
+        return selectedRadio ? selectedRadio.value : null;
+    }
+    
     /** Menambahkan item ke pesanan atau memperbarui jumlahnya. */
     function addItem(id, name, price) {
-        const existingItem = currentOrder.find(item => item.id === id);
+        // ID harus diubah ke string karena data-attribute dari HTML adalah string
+        const existingItem = currentOrder.find(item => String(item.id) === String(id)); 
         if (existingItem) {
             existingItem.qty += 1;
         } else {
@@ -42,30 +62,31 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (currentOrder.length === 0) {
             orderListDiv.innerHTML = '<p class="text-center text-muted mt-4">Silahkan Pilih Menu...</p>';
+            orderButton.disabled = true;
         } else {
+            orderButton.disabled = false;
             currentOrder.forEach(item => {
                 const subtotal = item.price * item.qty;
                 totalPrice += subtotal;
                 totalItems += item.qty;
 
                 const itemDiv = document.createElement('div');
-                itemDiv.className = 'order-item';
+                // *** PERBAIKAN: Struktur HTML yang sesuai dengan Bootstrap ***
+                itemDiv.className = 'd-flex justify-content-between align-items-center border-bottom py-2';
                 itemDiv.innerHTML = `
-                    <div class="item-info">
-                        <span class="item-name">${item.name}</span>
-                        <span class="item-price">Rp ${formatRupiah(item.price)}</span>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-0">${item.name}</h6>
+                        <small class="text-muted">Rp ${formatRupiah(item.price)}</small>
                     </div>
-                    <div class="item-controls">
-                        <div class="btn-group" role="group">
-                            <button class="btn btn-outline-secondary btn-qty-change" data-id="${item.id}" data-amount="-1">
-                                <i class="bi bi-dash-lg"></i>
-                            </button>
-                            <button class="btn btn-outline-secondary btn-qty-display" disabled>${item.qty}</button>
-                            <button class="btn btn-outline-secondary btn-qty-change" data-id="${item.id}" data-amount="1">
-                                <i class="bi bi-plus-lg"></i>
-                            </button>
-                        </div>
-                        <button class="btn btn-outline-danger btn-remove-item" data-id="${item.id}">
+                    <div class="d-flex align-items-center gap-1">
+                        <button class="btn btn-sm btn-outline-secondary btn-qty-change" data-id="${item.id}" data-amount="-1">
+                            <i class="bi bi-dash-lg"></i>
+                        </button>
+                        <span class="fw-bold mx-1">${item.qty}</span>
+                        <button class="btn btn-sm btn-outline-secondary btn-qty-change" data-id="${item.id}" data-amount="1">
+                            <i class="bi bi-plus-lg"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger btn-remove-item ms-2" data-id="${item.id}">
                             <i class="bi bi-x-lg"></i>
                         </button>
                     </div>
@@ -79,6 +100,10 @@ document.addEventListener('DOMContentLoaded', function() {
         // Panggil kalkulasi kembalian jika metode tunai aktif
         if (getSelectedPaymentMethod() === 'Tunai') {
             calculateChange();
+        } else {
+            // Sembunyikan error dan kembalian jika bukan tunai
+            cashErrorDiv.style.display = 'none';
+            changeDisplayDiv.style.display = 'none';
         }
     }
 
@@ -109,30 +134,22 @@ document.addEventListener('DOMContentLoaded', function() {
         cashErrorDiv.style.display = 'none';
         changeDisplayDiv.style.display = 'none';
 
-        if (cashPaid <= 0 || total <= 0) {
+        if (total <= 0) {
+            cashAmountInput.value = '';
             return;
         }
 
         if (cashPaid < total) {
             cashErrorDiv.style.display = 'block';
+            orderButton.disabled = true;
         } else {
             const change = cashPaid - total;
             changeAmountSpan.innerText = `Rp ${formatRupiah(change)}`;
             changeDisplayDiv.style.display = 'block';
+            orderButton.disabled = false;
         }
     }
-
-    /** Helper: Mendapatkan total harga pesanan saat ini (sebagai angka) */
-    function getCurrentTotal() {
-        return currentOrder.reduce((sum, item) => sum + (item.price * item.qty), 0);
-    }
-
-    /** Helper: Mendapatkan metode pembayaran yang dipilih */
-    function getSelectedPaymentMethod() {
-        const selectedRadio = document.querySelector('input[name="paymentMethod"]:checked');
-        return selectedRadio ? selectedRadio.value : null;
-    }
-
+    
     /** Mengirim data pesanan ke backend termasuk info pembayaran. */
     async function processOrder() {
         if (currentOrder.length === 0) {
@@ -168,7 +185,9 @@ document.addEventListener('DOMContentLoaded', function() {
             payment_method: paymentMethod,
             total_price: total,
             cash_paid: cashPaid,
-            change_amount: change
+            change_amount: change,
+            // Tambahkan Order ID yang unik (jika Anda memiliki logic di PHP untuk ini, hapus ini)
+            // order_id: `ORD-${Date.now()}` 
         };
 
         // Kirim data ke backend
@@ -181,7 +200,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
 
             if (result.success) {
-                successModal.show();
+                // Tampilkan Modal sukses
+                if(successModal) {
+                    successModal.show();
+                } else {
+                    alert('Pesanan Berhasil!');
+                }
+                
+                // Reset UI
                 currentOrder = [];
                 updateOrderDisplay();
                 cashAmountInput.value = '';
@@ -197,12 +223,6 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error saat proses order:', error);
             alert('Terjadi kesalahan koneksi saat memproses pesanan.');
         }
-    }
-
-    /** Mengubah angka menjadi format Rupiah. */
-    function formatRupiah(angka) {
-        if (angka == null) return '0';
-        return angka.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     }
 
     // EVENT LISTENERS
@@ -226,12 +246,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!target) return;
 
         const itemId = target.dataset.id;
-
+        
+        // Mengubah kuantitas
         if (target.classList.contains('btn-qty-change')) {
             const amount = parseInt(target.dataset.amount);
             changeQuantity(itemId, amount);
         }
-
+        
+        // Menghapus item
         if (target.classList.contains('btn-remove-item')) {
             removeItem(itemId);
         }
@@ -263,8 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 calculateChange();
             } else {
                 cashPaymentDiv.style.display = 'none';
-                cashErrorDiv.style.display = 'none';
-                changeDisplayDiv.style.display = 'none';
+                updateOrderDisplay(); // Memastikan tombol "Proses Pembayaran" tidak disable jika QRIS
             }
         });
     });
@@ -272,21 +293,28 @@ document.addEventListener('DOMContentLoaded', function() {
     // 6. Event listener untuk input jumlah tunai
     cashAmountInput.addEventListener('keyup', calculateChange);
     cashAmountInput.addEventListener('change', calculateChange);
-
-    // ▼▼▼ 7. EVENT LISTENER BARU UNTUK TOMBOL CEPAT ▼▼▼
-    const quickCashButtons = document.querySelectorAll('.quick-cash-btn');
+    
+    // 7. EVENT LISTENER UNTUK TOMBOL CEPAT
     quickCashButtons.forEach(button => {
         button.addEventListener('click', function() {
-            // Ambil nominal dari atribut data-amount
             const amount = this.dataset.amount;
-            // Masukkan nominal ke input jumlah tunai
             cashAmountInput.value = amount;
-            // Panggil fungsi hitung kembalian
             calculateChange();
-            // (Opsional) Beri fokus ke tombol Proses Pembayaran
-            // orderButton.focus(); // Uncomment jika diinginkan
         });
     });
-    // ▲▲▲ AKHIR EVENT LISTENER TOMBOL CEPAT ▲▲▲
+
+    // Inisialisasi awal
+    updateOrderDisplay();
+    
+    // Pastikan modal muncul jika ada parameter di URL (walaupun fetch lebih baik)
+    if (new URLSearchParams(window.location.search).get('status') === 'success' && successModal) {
+         successModal.show();
+         // Opsional: Hapus parameter URL
+         if (window.history.replaceState) {
+            const url = new URL(window.location);
+            url.searchParams.delete('status');
+            window.history.replaceState({}, '', url);
+        }
+    }
 
 }); // Akhir dari DOMContentLoaded

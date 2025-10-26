@@ -3,6 +3,7 @@
 include 'koneksi.php'; // Pastikan file koneksi.php sudah ada
 
 // Mengambil semua data menu dari database
+// Menggunakan PDO, pastikan koneksi.php mendefinisikan $pdo
 $stmt_all_menu = $pdo->query("SELECT * FROM menu ORDER BY kategori_utama, sub_kategori, nama_menu");
 $all_menu_items = $stmt_all_menu->fetchAll();
 
@@ -35,6 +36,11 @@ if ($active_sub_category !== null) {
     }
 }
 
+// Fungsi untuk format Rupiah di PHP
+function formatRupiahPHP($angka) {
+    return number_format($angka, 0, ',', '.');
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -47,6 +53,16 @@ if ($active_sub_category !== null) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     
     <link rel="stylesheet" href="assets/css/style.css">
+    <style>
+        .menu-item {
+            cursor: pointer; /* Indikasi bahwa elemen dapat diklik */
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .menu-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+    </style>
 </head>
 <body class="bg-light">
 
@@ -97,21 +113,19 @@ if ($active_sub_category !== null) {
                 <div class="card h-100">
                     <div class="card-body d-flex flex-column">
                         <input type="text" class="form-control mb-3" id="search-input" placeholder="Cari menu...">
-                        <div class="menu-grid">
-                            <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3">
+                        <div class="menu-grid overflow-auto flex-grow-1"> <div class="row row-cols-2 row-cols-md-3 row-cols-xl-4 g-3">
                                 <?php if (!empty($items_to_display)): ?>
                                     <?php foreach ($items_to_display as $item): ?>
                                         <div class="col">
-                                            <div class="card h-100 menu-item" 
-                                                 data-id="<?= htmlspecialchars($item['id']) ?>" 
-                                                 data-name="<?= htmlspecialchars($item['nama_menu']) ?>" 
-                                                 data-price="<?= $item['harga'] ?>">
-                                                <img src="<?= htmlspecialchars(file_exists($item['gambar']) ? $item['gambar'] : 'assets/images/placeholder_default.png') ?>" 
-                                                     class="card-img-top" 
-                                                     alt="<?= htmlspecialchars($item['nama_menu']) ?>">
+                                            <div class="card h-100 menu-item clickable" 
+                                                data-id="<?= htmlspecialchars($item['id']) ?>" 
+                                                data-name="<?= htmlspecialchars($item['nama_menu']) ?>" 
+                                                data-price="<?= $item['harga'] ?>"> <img src="<?= htmlspecialchars(file_exists($item['gambar']) ? $item['gambar'] : 'assets/images/placeholder_default.png') ?>" 
+                                                    class="card-img-top" 
+                                                    alt="<?= htmlspecialchars($item['nama_menu']) ?>">
                                                 <div class="card-body p-2 text-center">
                                                     <h6 class="card-title fs-sm mb-1"><?= htmlspecialchars($item['nama_menu']) ?></h6>
-                                                    <p class="card-text text-primary fw-bold">Rp <?= number_format($item['harga'], 0, ',', '.') ?></p>
+                                                    <p class="card-text text-primary fw-bold">Rp <?= formatRupiahPHP($item['harga']) ?></p>
                                                 </div>
                                             </div>
                                         </div>
@@ -133,8 +147,7 @@ if ($active_sub_category !== null) {
                              <span id="order-id-display" class="badge bg-secondary">Order #1</span>
                         </div>
 
-                        <div id="order-list" class="flex-grow-1 my-3">
-                            <p class="text-center text-muted mt-4">Silahkan Pilih Menu...</p>
+                        <div id="order-list" class="flex-grow-1 my-3 overflow-auto"> <p class="text-center text-muted mt-4">Silahkan Pilih Menu...</p>
                         </div>
 
                         <div class="payment-section mt-auto border-top pt-3">
