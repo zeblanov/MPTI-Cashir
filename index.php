@@ -25,7 +25,6 @@ if ($active_sub_category === null && !empty($menu_data_grouped)) {
     }
 }
 
-
 // Cari item yang sesuai dengan sub-kategori aktif
 if ($active_sub_category !== null) {
     foreach ($menu_data_grouped as $main_category => $sub_categories) {
@@ -85,6 +84,7 @@ if ($active_sub_category !== null) {
                         <a href="kelola_menu.php" class="btn btn-info w-100 mt-auto pt-2 pb-2">
                             <i class="bi bi-pencil-square"></i> Kelola Menu
                         </a>
+                        
                         <a href="laporan.php" class="btn btn-outline-secondary w-100 mt-2">
                             Lihat Laporan Penjualan
                         </a>
@@ -132,22 +132,60 @@ if ($active_sub_category !== null) {
                              <h5 class="mb-0">Order Menu</h5>
                              <span id="order-id-display" class="badge bg-secondary">Order #1</span>
                         </div>
+
                         <div id="order-list" class="flex-grow-1 my-3">
                             <p class="text-center text-muted mt-4">Silahkan Pilih Menu...</p>
                         </div>
-                        <div class="order-summary bg-primary text-white rounded p-3">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <span id="item-count" class="d-block">0 items</span>
-                                    <strong id="total-price" class="fs-5">Rp 0</strong>
-                                </div>
-                                <button id="btn-order" class="btn btn-light fw-bold">Order</button>
+
+                        <div class="payment-section mt-auto border-top pt-3">
+                            <div class="d-flex justify-content-between fw-bold mb-1">
+                                <span class="text-muted">Total Items:</span>
+                                <span id="item-count">0 items</span>
                             </div>
+                            <div class="d-flex justify-content-between fw-bold fs-5 mb-3">
+                                <span>Total Harga:</span>
+                                <span id="total-price" class="text-primary">Rp 0</span>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold d-block mb-2">Metode Pembayaran:</label>
+                                <div class="d-flex gap-2">
+                                    <input type="radio" class="btn-check" name="paymentMethod" id="pay-cash" value="Tunai" autocomplete="off" checked>
+                                    <label class="btn btn-outline-success flex-fill" for="pay-cash"><i class="bi bi-cash-coin"></i> Tunai</label>
+
+                                    <input type="radio" class="btn-check" name="paymentMethod" id="pay-qris" value="QRIS" autocomplete="off">
+                                    <label class="btn btn-outline-info flex-fill" for="pay-qris"><i class="bi bi-qr-code"></i> QRIS</label>
+                                </div>
+                            </div>
+
+                            <div id="cash-payment-details" class="mb-3">
+                                <label for="cash-amount" class="form-label">Jumlah Uang Tunai:</label>
+                                <div class="input-group mb-2"> <span class="input-group-text">Rp</span>
+                                    <input type="number" class="form-control" id="cash-amount" placeholder="0" min="0">
+                                </div>
+
+                                <div class="quick-cash-buttons d-flex flex-wrap gap-1 mb-2">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary quick-cash-btn" data-amount="10000">10rb</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary quick-cash-btn" data-amount="20000">20rb</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary quick-cash-btn" data-amount="50000">50rb</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary quick-cash-btn" data-amount="100000">100rb</button>
+                                    </div>
+                                <div class="mt-2" id="change-display" style="display: none;">
+                                    <strong>Kembalian:</strong> <span id="change-amount" class="text-success fw-bold fs-5">Rp 0</span>
+                                </div>
+                                <div class="mt-2 text-danger fw-bold" id="cash-error" style="display: none;">
+                                    <i class="bi bi-exclamation-triangle-fill"></i> Uang tunai kurang!
+                                </div>
+                            </div>
+
+                            <button id="btn-order" class="btn btn-success w-100 fw-bold btn-lg">
+                                <i class="bi bi-check-circle-fill"></i> Proses Pembayaran
+                            </button>
                         </div>
-                    </div>
+                        </div>
                 </div>
             </aside>
-        </div>
+            </div>
     </div>
 
     <div class="modal fade" id="orderSuccessModal" tabindex="-1" aria-labelledby="orderSuccessModalLabel" aria-hidden="true">

@@ -1,50 +1,74 @@
 <?php
-// Mengatur header agar browser tahu bahwa responsnya adalah format JSON
+// Memasukkan file koneksi database
+include 'koneksi.php';
+
 header('Content-Type: application/json');
 
-// Menentukan nama file yang akan kita gunakan sebagai database
-$database_file = 'transaksi.json';
+// Mengambil data JSON yang dikirim oleh JavaScript
+$payload = json_decode(file_get_contents('php://input'), true);
 
-// 1. Mengambil data mentah (raw data) yang dikirim oleh JavaScript
-$json_data = file_get_contents('php://input');
-// 2. Mengubah string JSON menjadi array PHP
-$order_data = json_decode($json_data, true);
+// Ekstrak data dari payload
+$order_data = $payload['items'] ?? [];
+$payment_method = $payload['payment_method'] ?? null;
+$total_price = $payload['total_price'] ?? 0;
+$cash_paid = $payload['cash_paid'] ?? null; // Bisa null jika bukan tunai
+$change_amount = $payload['change_amount'] ?? null; // Bisa null jika bukan tunai
 
-// 3. Validasi sederhana: pastikan ada data yang dikirim
-if (empty($order_data)) {
-    // Jika tidak ada data, kirim pesan error
-    echo json_encode(['success' => false, 'message' => 'Tidak ada data pesanan yang diterima.']);
-    exit; // Hentikan eksekusi script
+if (empty($order_data) || empty($payment_method)) {
+    echo json_encode(['success' => false, 'message' => 'Data pesanan atau metode pembayaran tidak lengkap.']);
+    exit;
 }
 
-// 4. Membaca data transaksi yang sudah ada (jika file sudah ada)
-$all_transactions = [];
-if (file_exists($database_file)) {
-    $transactions_json = file_get_contents($database_file);
-    $all_transactions = json_decode($transactions_json, true);
+// Mulai Database Transaction
+$pdo->beginTransaction();
+
+try {
+    // 1. Siapkan data transaksi utama
+    $order_id_str = 'TRX-' . time() . '-' . rand(100, 999); // Tambahkan random agar lebih unik
+    $tanggal = date('Y-m-d H:i:s');
+
+    // 2. Simpan ke tabel `transaksi` (termasuk data pembayaran baru)
+    $sql_transaksi = "INSERT INTO transaksi (order_id, tanggal, total, metode_pembayaran, jumlah_bayar, kembalian)
+                      VALUES (?, ?, ?, ?, ?, ?)";
+    $stmt_transaksi = $pdo->prepare($sql_transaksi);
+    $stmt_transaksi->execute([
+        $order_id_str,
+        $tanggal,
+        $total_price,
+        $payment_method,
+        $cash_paid,  // Simpan jumlah bayar
+        $change_amount // Simpan kembalian
+    ]);
+
+    // 3. Ambil ID dari transaksi yang baru saja disimpan
+    $transaksi_id_baru = $pdo->lastInsertId();
+
+    // 4. Siapkan query untuk menyimpan item-item
+    $sql_items = "INSERT INTO transaksi_items (transaksi_id, item_id_menu, item_name, item_price, qty)
+                  VALUES (?, ?, ?, ?, ?)";
+    $stmt_items = $pdo->prepare($sql_items);
+
+    // 5. Loop dan simpan setiap item ke tabel `transaksi_items`
+    foreach ($order_data as $item) {
+        $stmt_items->execute([
+            $transaksi_id_baru,
+            $item['id'],
+            $item['name'],
+            $item['price'],
+            $item['qty']
+        ]);
+    }
+
+    // 6. Jika semua berhasil, commit transaksi
+    $pdo->commit();
+
+    echo json_encode(['success' => true, 'message' => 'Pesanan berhasil disimpan ke database!']);
+
+} catch (Exception $e) {
+    // 7. Jika ada kegagalan, batalkan semua (rollback)
+    $pdo->rollBack();
+    // Kirim pesan error yang lebih spesifik jika memungkinkan
+    error_log("Database Error: " . $e->getMessage()); // Catat error di log server
+    echo json_encode(['success' => false, 'message' => 'Terjadi kesalahan pada database. Silakan coba lagi.']);
 }
-
-// 5. Menyiapkan data transaksi baru
-$total_harga = 0;
-foreach ($order_data as $item) {
-    $total_harga += $item['price'] * $item['qty'];
-}
-
-$new_transaction = [
-    'order_id' => 'TRX-' . time(), // Membuat ID unik berdasarkan waktu
-    'tanggal' => date('Y-m-d H:i:s'),
-    'total' => $total_harga,
-    'items' => $order_data,
-];
-
-// 6. Menambahkan transaksi baru ke dalam daftar semua transaksi
-$all_transactions[] = $new_transaction;
-
-// 7. Menyimpan kembali semua data ke dalam file transaksi.json
-// JSON_PRETTY_PRINT membuat format file JSON lebih rapi dan mudah dibaca
-file_put_contents($database_file, json_encode($all_transactions, JSON_PRETTY_PRINT));
-
-// 8. Mengirim respons berhasil kembali ke JavaScript
-echo json_encode(['success' => true, 'message' => 'Pesanan berhasil disimpan!']);
-
 ?>

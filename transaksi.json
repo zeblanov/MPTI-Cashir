@@ -50,5 +50,18 @@
                 "qty": 1
             }
         ]
+    },
+    {
+        "order_id": "TRX-1761112967",
+        "tanggal": "2025-10-22 08:02:47",
+        "total": 30000,
+        "items": [
+            {
+                "id": "DB04",
+                "name": "Matcha Green Tea",
+                "price": 30000,
+                "qty": 1
+            }
+        ]
     }
 ]
