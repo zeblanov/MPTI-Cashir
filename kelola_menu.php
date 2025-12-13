@@ -1,4 +1,22 @@
 <?php
+
+// Bagian paling atas dari index.php, kelola_menu.php, dll.
+
+session_start();
+
+// Cek apakah user sudah login
+if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== TRUE) {
+    // Jika belum login, redirect ke halaman login
+    header("Location: login.php");
+    exit();
+}
+// Tambahkan nama pengguna yang sedang aktif (opsional, tapi bagus untuk UI)
+$nama_kasir = $_SESSION['nama_lengkap']; 
+
+// Jika sudah login, lanjutkan loading halaman
+
+
+
 include 'koneksi.php'; // Sertakan file koneksi
 
 // Ambil semua data menu dari database, diurutkan

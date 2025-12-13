@@ -1,4 +1,10 @@
 <?php
+// proses_pesanan.php
+
+// PENTING: Jika Anda menggunakan sesi untuk menyimpan nama kasir, 
+// pastikan session_start() dipanggil di file ini.
+session_start();
+
 // Memasukkan file koneksi database
 include 'koneksi.php';
 
@@ -22,6 +28,10 @@ $total_price = $payload['total_price'] ?? 0.00; // Gunakan float untuk harga
 $cash_paid = $payload['cash_paid'] ?? 0.00; 
 $change_amount = $payload['change_amount'] ?? 0.00;
 
+// Ambil Nama Kasir dari Sesi (Diperlukan untuk Nota)
+$kasir_name = $_SESSION['nama_lengkap'] ?? 'Kasir Tidak Dikenal';
+
+
 // Validasi kritis
 if (empty($order_data) || empty($payment_method) || $total_price <= 0) {
     http_response_code(400); // Bad Request
@@ -32,7 +42,6 @@ if (empty($order_data) || empty($payment_method) || $total_price <= 0) {
 // --- Akhir Validasi Input ---
 
 // Memulai Database Transaction
-// Pengecekan status pdo harus dilakukan sebelum beginTransaction jika koneksi.php rentan error
 try {
     $pdo->beginTransaction();
 
@@ -42,7 +51,6 @@ try {
     $tanggal = date('Y-m-d H:i:s');
 
     // 2. Simpan ke tabel `transaksi`
-    // Gunakan parameter terikat untuk semua nilai untuk keamanan (terhindar dari SQL Injection)
     $sql_transaksi = "INSERT INTO transaksi (order_id, tanggal, total, metode_pembayaran, jumlah_bayar, kembalian)
                      VALUES (:order_id, :tanggal, :total, :metode, :bayar, :kembalian)";
     $stmt_transaksi = $pdo->prepare($sql_transaksi);
@@ -64,24 +72,58 @@ try {
     $stmt_items = $pdo->prepare($sql_items);
 
     // 5. Loop dan simpan setiap item ke tabel `transaksi_items`
+    // Sambil menyimpan data item ke array untuk Nota
+    $nota_items = []; 
     foreach ($order_data as $item) {
-        // Pastikan semua kunci yang diakses ada
+        $item_name = $item['name'] ?? 'Unknown Item';
+        $item_price = $item['price'] ?? 0.00;
+        $item_qty = $item['qty'] ?? 1;
+
         $stmt_items->execute([
             ':transaksi_id' => $transaksi_id_baru,
             ':id_menu' => $item['id'] ?? null,
-            ':name' => $item['name'] ?? 'Unknown Item',
-            ':price' => $item['price'] ?? 0.00,
-            ':qty' => $item['qty'] ?? 1
+            ':name' => $item_name,
+            ':price' => $item_price,
+            ':qty' => $item_qty
         ]);
+
+        // Simpan data item ke array nota
+        $nota_items[] = [
+            'name' => $item_name,
+            'quantity' => $item_qty,
+            'price' => $item_price // harga per unit
+        ];
     }
 
     // 6. Jika semua berhasil, commit transaksi
     $pdo->commit();
 
+
+    // ------------------------------------------------------------------
+    // *** PENAMBAHAN UNTUK CETAK NOTA PDF (KEPERLUAN index.php) ***
+    // ------------------------------------------------------------------
+    
+    $transaction_data_for_nota = [
+        'transaksi_id'    => $order_id_str,
+        'timestamp'       => $tanggal,
+        'kasir_name'      => $kasir_name,
+        'total_price'     => $total_price,
+        'cash_amount'     => $cash_paid,
+        'change_amount'   => $change_amount,
+        'payment_method'  => $payment_method,
+        'items'           => $nota_items 
+    ];
+
+    // Simpan data lengkap transaksi ke sesi
+    $_SESSION['last_transaction'] = $transaction_data_for_nota;
+
+    // ------------------------------------------------------------------
+
+
     http_response_code(201); // Created
     echo json_encode([
         'success' => true, 
-        'message' => 'Pesanan berhasil disimpan ke database!',
+        'message' => 'Pesanan berhasil disimpan ke database dan siap dicetak!',
         'order_id' => $order_id_str // Kembalikan ID untuk konfirmasi di frontend
     ]);
 
@@ -91,6 +133,9 @@ try {
         $pdo->rollBack();
     }
     
+    // Hapus data sesi transaksi jika terjadi error
+    unset($_SESSION['last_transaction']); 
+
     // Kirim pesan error yang lebih spesifik jika memungkinkan
     http_response_code(500); // Internal Server Error
     error_log("Database Error (PDO): " . $e->getMessage() . " in file " . __FILE__ . " on line " . $e->getLine()); 
@@ -104,6 +149,9 @@ try {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
     }
+    
+    // Hapus data sesi transaksi
+    unset($_SESSION['last_transaction']); 
     
     http_response_code(500);
     error_log("General Error: " . $e->getMessage());
