@@ -1,21 +1,26 @@
 <?php
-// logout.php
+session_start(); // Memulai sesi
 
-// 1. Mulai sesi PHP
-// Ini diperlukan untuk mengakses data sesi yang akan dihapus.
-session_start();
+// Menghapus semua data sesi
+$_SESSION = array();
 
-// 2. Hapus semua variabel sesi
-// Menghilangkan data pengguna yang tersimpan (misalnya $_SESSION['logged_in'])
-session_unset();
+// Menghapus cookie sesi jika ada
+if (ini_get("session.use_cookies")) {
+    $params = session_get_cookie_params();
+    setcookie(
+        session_name(),
+        '',
+        time() - 42000,
+        $params["path"],
+        $params["domain"],
+        $params["secure"],
+        $params["httponly"]
+    );
+}
 
-// 3. Hancurkan sesi
-// Menghapus file sesi dari server.
+// Menghancurkan sesi secara total
 session_destroy();
 
-// 4. Lakukan pengalihan (redirect) ke halaman login.php
-// header("Location: login.php");
-// Gunakan exit() setelah header() untuk menghentikan eksekusi skrip lebih lanjut.
-header("Location: login.php?status=logged_out");
-exit(); 
-?>
+// Mengarahkan kembali ke halaman login
+header("location: login.php");
+exit;
