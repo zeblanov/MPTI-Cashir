@@ -1,6 +1,8 @@
 document.addEventListener('DOMContentLoaded', function() {
 
+    // ======================
     // VARIABEL GLOBAL
+    // ======================
     let currentOrder = [];
     const menuItems = document.querySelectorAll('.menu-item');
     const orderListDiv = document.getElementById('order-list');
@@ -9,11 +11,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const itemCountSpan = document.getElementById('item-count');
     const searchInput = document.getElementById('search-input');
 
-    // Instance Modal Bootstrap
+    // Modal Bootstrap
     const confirmModal = new bootstrap.Modal(document.getElementById('confirmOrderModal'));
     const successModal = new bootstrap.Modal(document.getElementById('orderSuccessModal'));
 
-    // Variabel Pembayaran
+    // Pembayaran
     const paymentMethodRadios = document.querySelectorAll('input[name="paymentMethod"]');
     const cashPaymentDiv = document.getElementById('cash-payment-details');
     const cashAmountInput = document.getElementById('cash-amount');
@@ -22,7 +24,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const cashErrorDiv = document.getElementById('cash-error');
     const quickCashButtons = document.querySelectorAll('.quick-cash-btn');
 
-    // UTILITY FUNCTIONS
+    // ======================
+    // UTILITAS
+    // ======================
     function formatRupiah(angka) {
         return angka.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     }
@@ -35,7 +39,9 @@ document.addEventListener('DOMContentLoaded', function() {
         return document.querySelector('input[name="paymentMethod"]:checked').value;
     }
 
-    // CORE LOGIC: KERANJANG
+    // ======================
+    // KERANJANG
+    // ======================
     function addItem(id, name, price) {
         const existingItem = currentOrder.find(item => String(item.id) === String(id));
         if (existingItem) {
@@ -53,9 +59,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (currentOrder.length === 0) {
             orderListDiv.innerHTML = '<p class="text-center text-muted mt-5">Silahkan Pilih Menu...</p>';
-            orderButton.disabled = true;
+            orderButton.disabled = true; // Matikan tombol jika kosong
         } else {
-            orderButton.disabled = false;
+            // Tombol jangan langsung di-enable, biarkan calculateChange yang memutuskan
+            // berdasarkan kecukupan uang tunai nanti
             currentOrder.forEach(item => {
                 const subtotal = item.price * item.qty;
                 totalPrice += subtotal;
@@ -72,18 +79,20 @@ document.addEventListener('DOMContentLoaded', function() {
                         <button class="btn btn-xs btn-outline-secondary" onclick="changeQty('${item.id}', -1)">-</button>
                         <span class="small mx-1">${item.qty}</span>
                         <button class="btn btn-xs btn-outline-secondary" onclick="changeQty('${item.id}', 1)">+</button>
-                        <button class="btn btn-xs btn-link text-danger ms-1" onclick="removeItem('${item.id}')"><i class="bi bi-trash"></i></button>
+                        <button class="btn btn-xs btn-link text-danger ms-1" onclick="removeItem('${item.id}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
                     </div>
                 `;
                 orderListDiv.appendChild(itemDiv);
             });
         }
+
         totalPriceSpan.innerText = `Rp ${formatRupiah(totalPrice)}`;
         itemCountSpan.innerText = `${totalItems} items`;
-        calculateChange();
+        calculateChange(); // Panggil validasi pembayaran setiap update keranjang
     }
 
-    // Global Access untuk Button di dalam HTML String
     window.changeQty = (id, amt) => {
         const item = currentOrder.find(i => String(i.id) === String(id));
         if (item) {
@@ -98,47 +107,57 @@ document.addEventListener('DOMContentLoaded', function() {
         updateOrderDisplay();
     };
 
-    // LOGIKA PEMBAYARAN
+    // ======================
+    // PEMBAYARAN
+    // ======================
     function calculateChange() {
         const total = getCurrentTotal();
         const method = getSelectedPaymentMethod();
-        
+
+        // JIKA KERANJANG KOSONG, TOMBOL HARUS MATI APAPUN METODENYA
+        if (total === 0) {
+            orderButton.disabled = true;
+            cashErrorDiv.style.display = 'none';
+            changeDisplayDiv.style.display = 'none';
+            return;
+        }
+
         if (method !== 'Tunai') {
             cashErrorDiv.style.display = 'none';
             changeDisplayDiv.style.display = 'none';
-            orderButton.disabled = (total === 0);
+            orderButton.disabled = false; // QRIS tidak butuh cek uang tunai
             return;
         }
 
         const cashPaid = parseInt(cashAmountInput.value) || 0;
-        if (total > 0 && cashPaid < total) {
+
+        if (cashPaid < total) {
             cashErrorDiv.style.display = 'block';
             changeDisplayDiv.style.display = 'none';
-            orderButton.disabled = true;
-        } else if (total > 0 && cashPaid >= total) {
+            orderButton.disabled = true; // Uang kurang, tombol mati
+        } else {
             cashErrorDiv.style.display = 'none';
             changeDisplayDiv.style.display = 'block';
             changeAmountSpan.innerText = `Rp ${formatRupiah(cashPaid - total)}`;
-            orderButton.disabled = false;
+            orderButton.disabled = false; // Uang cukup, tombol aktif
         }
     }
 
-    // ALUR PROSES PESANAN (MENGGUNAKAN DUA MODAL)
-    
-    // Tahap 1: Klik Selesaikan (Buka Modal Konfirmasi)
+    // ======================
+    // PROSES PESANAN
+    // ======================
     orderButton.addEventListener('click', function() {
         const total = getCurrentTotal();
         const method = getSelectedPaymentMethod();
-        
-        // Update UI Modal Konfirmasi
+
         document.getElementById('confirm-method').innerText = method;
         document.getElementById('confirm-total').innerText = `Rp ${formatRupiah(total)}`;
-        
+
         if (method === 'Tunai') {
             const cash = parseInt(cashAmountInput.value) || 0;
-            const change = cash - total;
             document.getElementById('confirm-cash-section').style.display = 'block';
-            document.getElementById('confirm-cash-info').innerText = `Bayar: ${formatRupiah(cash)} / Kemb: ${formatRupiah(change)}`;
+            document.getElementById('confirm-cash-info').innerText =
+                `Bayar: Rp ${formatRupiah(cash)} | Kembali: Rp ${formatRupiah(cash - total)}`;
         } else {
             document.getElementById('confirm-cash-section').style.display = 'none';
         }
@@ -146,10 +165,12 @@ document.addEventListener('DOMContentLoaded', function() {
         confirmModal.show();
     });
 
-    // Tahap 2: Klik Konfirmasi di Modal (Kirim ke Server)
+    // ======================
+    // KIRIM KE SERVER & CETAK
+    // ======================
     document.getElementById('confirm-final-submit').addEventListener('click', async function() {
         confirmModal.hide();
-        
+
         const payload = {
             items: currentOrder,
             payment_method: getSelectedPaymentMethod(),
@@ -163,20 +184,43 @@ document.addEventListener('DOMContentLoaded', function() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+
             const result = await response.json();
 
             if (result.success) {
                 successModal.show();
+
+                // 🔥 ARAHKAN KE NOTA
+                setTimeout(() => {
+                    window.open(
+                        'nota.php?id=' + result.order_id,
+                        '_blank'
+                    );
+
+                    // RESET KASIR TOTAL
+                    currentOrder = [];
+                    cashAmountInput.value = '';
+                    changeDisplayDiv.style.display = 'none';
+                    
+                    // Update tampilan akan memicu orderButton.disabled = true di dalam updateOrderDisplay
+                    updateOrderDisplay(); 
+                    
+                    successModal.hide();
+                }, 500);
+
             } else {
                 alert("Gagal menyimpan: " + result.message);
             }
-        } catch (e) {
-            console.error(e);
-            alert("Terjadi kesalahan koneksi server.");
+
+        } catch (err) {
+            console.error(err);
+            alert("Koneksi server bermasalah.");
         }
     });
 
-    // EVENT LISTENERS LAINNYA
+    // ======================
+    // EVENT LAIN
+    // ======================
     menuItems.forEach(item => {
         item.addEventListener('click', () => {
             addItem(item.dataset.id, item.dataset.name, parseInt(item.dataset.price));
